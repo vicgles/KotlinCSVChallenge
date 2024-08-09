@@ -1,35 +1,37 @@
-import UserInfoDataRepository.Companion.dataSeparator
-import UserInfoDataRepository.Companion.errorMessage
-import UserInfoDataRepository.Companion.requestMethod
-import UserInfoDataRepository.Companion.sourceUrl
 import java.net.HttpURLConnection
 
 class UserInfoDataRepositoryImpl : UserInfoDataRepository {
 
     override fun fetchUserInfoData(): String {
-        val userInfoParams = UserInfoParams(sourceUrl, requestMethod)
+        val userInfoParams = UserInfoParams(Utils.sourceUrl, Utils.requestMethod)
         val userInfoDataManager = UserInfoDataManager(userInfoParams)
         val connection = userInfoDataManager.getConnection()
         try {
             if (connection?.responseCode == HttpURLConnection.HTTP_OK) {
+                val users = mutableListOf<User>()
                 val lines = userInfoDataManager.readInputStream(connection.inputStream).toMutableList()
-                lines.removeAt(0)
                 val response = StringBuilder()
+                lines.removeFirst()
                 lines.forEach {
-                    response.apply {
-                        append(it)
-                        append(dataSeparator)
+                    User.mapFromCSV(it)?.let { user ->
+                        users.add(user)
                     }
                 }
-                return response.toString()
+                val sortedList = users.sortedBy { it.email }
+                sortedList.forEach {
+                    response.apply {
+                        response.append(it.mapToCSV())
+                    }
+                }
+                return response.toString().removeSuffix(Utils.dataSeparator)
             } else {
-                println(errorMessage)
+                println(Utils.errorMessage)
             }
         } catch (e: Exception) {
             e.printStackTrace()
         } finally {
             connection?.disconnect()
         }
-        return errorMessage
+        return Utils.errorMessage
     }
 }
